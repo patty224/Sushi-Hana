@@ -73,6 +73,13 @@ const styles = {
     maxWidth: 480,
     color: 'rgba(255, 255, 255, 0.9)',
   },
+    heroImage: {
+    display: 'block',
+    width: 'min(100%, 720px)',
+    height: 'auto',
+    margin: '32px auto 0',
+    filter: 'drop-shadow(0 20px 20px rgba(0, 0, 0, 0.25))',
+  },
   grid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -147,6 +154,7 @@ export default function HomePage() {
           <p style={styles.heroText}>
             สัมผัสศิลปะแห่งอาหารญี่ปุ่นด้วยวัตถุดิบคุณภาพ ในบรรยากาศการรับประทานอาหารที่ทันสมัย
           </p>
+          <img src="/images/hero-sushi.png" alt="ซูชิหลากหลายชนิด" style={styles.heroImage} />
         </section>
 
         <section style={styles.grid}>
