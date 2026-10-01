@@ -43,7 +43,7 @@ const styles = {
     borderRadius: 32,
     color: '#ffffff',
     textAlign: 'center',
-    padding: '56px 24px 64px',
+    padding: '56px 24px 24px',
     boxShadow: '0 10px 30px rgba(227, 41, 41, 0.25)',
   },
   heroTag: {
@@ -77,7 +77,7 @@ const styles = {
     display: 'block',
     width: 'min(100%, 720px)',
     height: 'auto',
-    margin: '32px auto 0',
+    margin: '-70px auto 0',
     filter: 'drop-shadow(0 20px 20px rgba(0, 0, 0, 0.25))',
   },
   grid: {
