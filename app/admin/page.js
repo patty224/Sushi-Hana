@@ -3,14 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabaseClient';
 
-const ADULT_PRICE = 289;
-const CHILD_PRICE = 145;
 const ADMIN_PIN = process.env.NEXT_PUBLIC_ADMIN_PIN;
 const STORAGE_KEY = 'sushihana_admin_unlocked';
-
-function formatBaht(n) {
-  return Number(n).toLocaleString('th-TH');
-}
 
 const inputClass =
   'w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-xl text-stone-900 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-red-200';
@@ -113,11 +107,10 @@ export default function AdminPage() {
   return <AdminPanel onLock={handleLock} />;
 }
 
-// ---------- ส่วนจัดการหลัก ----------
+// ---------- จัดการเมนูอาหาร (เพิ่ม / ลบ) ----------
 function AdminPanel({ onLock }) {
   const [categories, setCategories] = useState([]);
   const [items, setItems] = useState([]);
-  const [billing, setBilling] = useState([]); // sessions ที่รออนุมัติเรียกเก็บเงิน
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState(null); // { type: 'success' | 'error', text }
@@ -128,7 +121,6 @@ function AdminPanel({ onLock }) {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [busySessionId, setBusySessionId] = useState(null);
 
   function flash(type, text) {
     setNotice({ type, text });
@@ -163,39 +155,9 @@ function AdminPanel({ onLock }) {
     }
   }, []);
 
-  const loadBilling = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
-      .from('sessions')
-      .select('id, table_number, adult_count, child_count, status, created_at')
-      .eq('status', 'billing')
-      .order('created_at', { ascending: true });
-
-    if (fetchError) {
-      console.error(fetchError);
-      setError(`โหลดคำขอเรียกเก็บเงินไม่สำเร็จ: ${fetchError.message}`);
-      return;
-    }
-    setBilling(data ?? []);
-  }, []);
-
   useEffect(() => {
     loadMenu();
-    loadBilling();
-
-    // Realtime (ถ้าเปิดให้ตาราง sessions) + polling ทุก 5 วินาทีเป็นตัวสำรอง
-    const channel = supabase
-      .channel('admin-sessions')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'sessions' }, () =>
-        loadBilling()
-      )
-      .subscribe();
-    const timer = setInterval(loadBilling, 5000);
-
-    return () => {
-      clearInterval(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [loadMenu, loadBilling]);
+  }, [loadMenu]);
 
   const visibleItems = useMemo(
     () => items.filter((it) => it.category_id === activeCategoryId),
@@ -271,59 +233,6 @@ function AdminPanel({ onLock }) {
     }
   }
 
-  // ---------- อนุมัติ / ปฏิเสธการเรียกเก็บเงิน ----------
-  async function approveBill(session) {
-    setBusySessionId(session.id);
-    try {
-      const { data, error: updateError } = await supabase
-        .from('sessions')
-        .update({ status: 'closed' })
-        .eq('id', session.id)
-        .eq('status', 'billing') // กันกดซ้ำ/สถานะเปลี่ยนไปแล้ว
-        .select('id');
-
-      if (updateError) throw updateError;
-      if (!data || data.length === 0) {
-        throw new Error('รายการนี้ถูกเปลี่ยนสถานะไปแล้ว');
-      }
-
-      setBilling((prev) => prev.filter((s) => s.id !== session.id));
-      flash('success', `อนุมัติโต๊ะ ${session.table_number} แล้ว — ปิดโต๊ะเรียบร้อย`);
-    } catch (err) {
-      console.error(err);
-      flash('error', err?.message ?? 'อนุมัติไม่สำเร็จ');
-      loadBilling();
-    } finally {
-      setBusySessionId(null);
-    }
-  }
-
-  async function rejectBill(session) {
-    setBusySessionId(session.id);
-    try {
-      const { data, error: updateError } = await supabase
-        .from('sessions')
-        .update({ status: 'open' })
-        .eq('id', session.id)
-        .eq('status', 'billing')
-        .select('id');
-
-      if (updateError) throw updateError;
-      if (!data || data.length === 0) {
-        throw new Error('รายการนี้ถูกเปลี่ยนสถานะไปแล้ว');
-      }
-
-      setBilling((prev) => prev.filter((s) => s.id !== session.id));
-      flash('success', `ปฏิเสธโต๊ะ ${session.table_number} แล้ว — โต๊ะกลับไปสั่งอาหารต่อได้`);
-    } catch (err) {
-      console.error(err);
-      flash('error', err?.message ?? 'ปฏิเสธไม่สำเร็จ');
-      loadBilling();
-    } finally {
-      setBusySessionId(null);
-    }
-  }
-
   // ---------- UI ----------
   const toast = notice ? (
     <div
@@ -360,73 +269,6 @@ function AdminPanel({ onLock }) {
           </p>
         )}
 
-        {/* ---------- คำขอเรียกเก็บเงิน ---------- */}
-        <section className="mb-8">
-          <h2 className="mb-3 flex items-center gap-2 text-2xl font-bold text-stone-900">
-            คำขอเรียกเก็บเงิน
-            <span className="rounded-full bg-red-600 px-3 py-0.5 text-base text-white">
-              {billing.length}
-            </span>
-          </h2>
-
-          {billing.length === 0 ? (
-            <p className="rounded-3xl bg-white p-5 text-lg text-stone-500 shadow-sm">
-              ยังไม่มีโต๊ะที่รออนุมัติ
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {billing.map((s) => {
-                const adults = Number(s.adult_count ?? 0);
-                const children = Number(s.child_count ?? 0);
-                const total = adults * ADULT_PRICE + children * CHILD_PRICE;
-                const busy = busySessionId === s.id;
-
-                return (
-                  <li
-                    key={s.id}
-                    className="rounded-3xl border-2 border-red-200 bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-base text-stone-500">โต๊ะ</p>
-                        <p className="font-display text-5xl leading-none text-red-600">
-                          {s.table_number}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-base text-stone-600">
-                          ผู้ใหญ่ {adults} × {ADULT_PRICE} + เด็ก {children} × {CHILD_PRICE}
-                        </p>
-                        <p className="font-display text-4xl text-stone-900">฿{formatBaht(total)}</p>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => rejectBill(s)}
-                        disabled={busy}
-                        className="flex-1 rounded-2xl bg-stone-100 py-3 text-lg font-semibold text-stone-700 disabled:opacity-60"
-                      >
-                        ปฏิเสธ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => approveBill(s)}
-                        disabled={busy}
-                        className="flex-[2] rounded-2xl bg-red-600 py-3 text-xl font-bold text-white shadow-md active:scale-95 disabled:opacity-60"
-                      >
-                        {busy ? 'กำลังดำเนินการ...' : 'อนุมัติ (ปิดโต๊ะ)'}
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
-
-        {/* ---------- จัดการเมนู ---------- */}
         <section>
           <h2 className="mb-3 text-2xl font-bold text-stone-900">จัดการเมนูอาหาร</h2>
 
@@ -452,10 +294,7 @@ function AdminPanel({ onLock }) {
               </nav>
 
               {/* ฟอร์มเพิ่มเมนู */}
-              <form
-                onSubmit={handleAdd}
-                className="mb-4 rounded-3xl bg-white p-5 shadow-sm"
-              >
+              <form onSubmit={handleAdd} className="mb-4 rounded-3xl bg-white p-5 shadow-sm">
                 <label className="flex flex-col gap-2 text-lg font-medium text-stone-700">
                   เพิ่มเมนูใหม่ในหมวด “{activeCategory?.name ?? '-'}”
                   <input
