@@ -163,6 +163,12 @@ export default function HomePage() {
             <p style={styles.cardText}>ดูออเดอร์ใหม่แบบเรียลไทม์ และอัปเดตสถานะการทำอาหาร</p>
             <span style={styles.buttonOutline}>ไปที่หน้าจอครัว</span>
           </Link>
+          <Link href="/admin" style={styles.card}>
+            <p style={styles.cardLabel}>สำหรับแอดมิน</p>
+            <h2 style={styles.cardTitle}>หน้าแอดมิน</h2>
+            <p style={styles.cardText}>อนุมัติการเรียกเก็บเงิน และเพิ่ม/ลบเมนูอาหาร</p>
+            <span style={styles.buttonOutline}>ไปที่หน้าแอดมิน</span>
+          </Link>
         </section>
       </div>
     </main>
