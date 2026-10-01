@@ -51,7 +51,7 @@ export default function GenerateQrPage() {
         .from('sessions')
         .select('id, table_number, adult_count, child_count, created_at')
         .eq('table_number', table)
-        .eq('status', 'open')
+        .in('status', ['open', 'billing'])
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -92,7 +92,7 @@ export default function GenerateQrPage() {
         .from('sessions')
         .update({ status: 'closed' })
         .eq('id', existingSession.id)
-        .eq('status', 'open'); // เช็คซ้ำ กันกดซ้ำ/ชนกัน
+        .in('status', ['open', 'billing']); // เช็คซ้ำ กันกดซ้ำ/ชนกัน
 
       if (updateError) throw updateError;
 
