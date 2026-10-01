@@ -20,45 +20,68 @@ function formatBaht(n) {
   return Number(n).toLocaleString('th-TH');
 }
 
-function FullScreenMessage({ title, text, tone = 'gray' }) {
-  const color = tone === 'green' ? 'text-green-700' : tone === 'red' ? 'text-red-700' : 'text-gray-800';
+function FullScreenMessage({ title, text, tone = 'default' }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-amber-50 px-6 text-center">
-      <h1 className={`text-3xl font-bold ${color}`}>{title}</h1>
-      {text && <p className="text-xl text-gray-600">{text}</p>}
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
+      <h1
+        className={`font-display text-3xl leading-snug ${
+          tone === 'red' ? 'text-red-600' : 'text-stone-900'
+        }`}
+      >
+        {title}
+      </h1>
+      {text && <p className="max-w-sm text-xl text-stone-600">{text}</p>}
     </main>
   );
 }
 
-function QtyStepper({ qty, onMinus, onPlus }) {
+function ThankYou() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+      <span className="rounded-full border border-red-300 bg-white px-4 py-1 text-sm font-medium text-red-600">
+        寿司花 · SushiHana
+      </span>
+      <h1 className="font-display text-5xl leading-tight text-stone-900">
+        ขอบคุณ
+        <br />
+        <span className="text-red-600">ที่ใช้บริการ</span>
+      </h1>
+      <p className="max-w-xs text-xl leading-relaxed text-stone-600">
+        หวังว่าคุณจะอิ่มอร่อยกับอาหารของเรา แล้วพบกันใหม่ในโอกาสหน้า 🍣
+      </p>
+    </main>
+  );
+}
+
+function QtyStepper({ qty, onMinus, onPlus, className = '' }) {
   if (qty === 0) {
     return (
       <button
         type="button"
         onClick={onPlus}
         aria-label="เพิ่มลงตะกร้า"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-3xl font-bold leading-none text-white active:scale-95"
+        className={`rounded-full border border-stone-300 bg-white py-2 text-base font-medium text-stone-800 active:scale-95 ${className}`}
       >
-        +
+        + เพิ่ม
       </button>
     );
   }
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center justify-between rounded-full bg-[#f8f5f0] p-1 ${className}`}>
       <button
         type="button"
         onClick={onMinus}
         aria-label="ลดจำนวน"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-200 text-3xl font-bold leading-none text-gray-800 active:scale-95"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-2xl leading-none text-stone-700 shadow-sm active:scale-95"
       >
         −
       </button>
-      <span className="w-8 text-center text-2xl font-bold">{qty}</span>
+      <span className="text-xl font-semibold text-stone-900">{qty}</span>
       <button
         type="button"
         onClick={onPlus}
         aria-label="เพิ่มจำนวน"
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-3xl font-bold leading-none text-white active:scale-95"
+        className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-2xl leading-none text-stone-700 shadow-sm active:scale-95"
       >
         +
       </button>
@@ -277,50 +300,71 @@ export default function OrderPage({ params }) {
     );
   }
   if (phase === 'finished') {
-    return <FullScreenMessage title="ขอบคุณที่ใช้บริการ 🙏" text="SushiHana ยินดีต้อนรับอีกครั้ง" tone="green" />;
+    return <ThankYou />;
   }
+
+  const activeCategory = categories.find((c) => c.id === activeCategoryId);
 
   // ---------- Main UI ----------
   return (
-    <div className="min-h-screen bg-amber-50 pb-32">
-      {/* Header + Tabs */}
-      <header className="sticky top-0 z-20 bg-white shadow">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <p className="text-sm text-gray-500">SushiHana</p>
-            <h1 className="text-2xl font-bold">โต๊ะ {session.table_number}</h1>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowBill(true)}
-            className="rounded-full bg-red-600 px-5 py-3 text-lg font-semibold text-white active:scale-95"
-          >
-            เรียกเก็บเงิน
-          </button>
-        </div>
+    <div className="min-h-screen pb-40">
+      {/* Top bar */}
+      <header className="mx-auto flex max-w-3xl items-center justify-between px-4 pt-5">
+        <p className="font-display text-2xl text-stone-900">
+          SUSHI<span className="text-red-600">HANA</span>
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowBill(true)}
+          className="rounded-full border border-stone-300 bg-white px-5 py-2.5 text-base font-semibold text-stone-800 shadow-sm active:scale-95"
+        >
+          เรียกเก็บเงิน
+        </button>
+      </header>
 
-        <nav className="flex gap-2 overflow-x-auto px-3 pb-3">
+      {/* Hero */}
+      <section className="mx-auto mt-4 max-w-3xl px-4">
+        <div className="rounded-3xl bg-[#e32929] px-6 py-6 text-white shadow-md">
+          <span className="inline-block rounded-full border border-white/70 px-3 py-1 text-sm">
+            โต๊ะ {session.table_number} · ผู้ใหญ่ {adultCount} · เด็ก {childCount}
+          </span>
+          <h1 className="mt-3 font-display text-3xl leading-tight">
+            เลือกเมนูที่ชอบ
+            <br />
+            สั่งได้เลย
+          </h1>
+          <p className="mt-3 text-lg">
+            บุฟเฟต์ผู้ใหญ่ <span className="text-2xl font-bold">฿{ADULT_PRICE}</span>
+            <span className="mx-2 opacity-70">/</span>
+            เด็ก <span className="text-2xl font-bold">฿{CHILD_PRICE}</span>
+          </p>
+        </div>
+      </section>
+
+      {/* Category tabs */}
+      <div className="sticky top-0 z-20 mt-4 bg-[#f8f5f0]/95 backdrop-blur">
+        <nav className="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 py-3">
           {categories.map((cat) => (
             <button
               key={cat.id}
               type="button"
               onClick={() => setActiveCategoryId(cat.id)}
-              className={`shrink-0 rounded-full px-5 py-2 text-lg font-semibold ${
+              className={`shrink-0 rounded-full px-5 py-2.5 text-lg font-semibold transition ${
                 cat.id === activeCategoryId
-                  ? 'bg-red-600 text-white'
-                  : 'bg-gray-100 text-gray-700'
+                  ? 'bg-red-600 text-white shadow-sm'
+                  : 'border border-stone-200 bg-white text-stone-700'
               }`}
             >
               {cat.name}
             </button>
           ))}
         </nav>
-      </header>
+      </div>
 
       {/* Toast */}
       {notice && (
         <div
-          className={`fixed left-1/2 top-28 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-xl px-4 py-3 text-center text-lg font-semibold text-white shadow-lg ${
+          className={`fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl px-4 py-3 text-center text-lg font-semibold text-white shadow-lg ${
             notice.type === 'success' ? 'bg-green-600' : 'bg-red-600'
           }`}
         >
@@ -328,19 +372,28 @@ export default function OrderPage({ params }) {
         </div>
       )}
 
-      {/* Menu list */}
-      <main className="mx-auto max-w-xl px-4 py-4">
+      {/* Menu grid */}
+      <main className="mx-auto max-w-3xl px-4 pt-1">
         {visibleItems.length === 0 && (
-          <p className="py-10 text-center text-xl text-gray-500">ยังไม่มีเมนูในหมวดนี้</p>
+          <p className="py-10 text-center text-xl text-stone-500">ยังไม่มีเมนูในหมวดนี้</p>
         )}
-        <ul className="space-y-3">
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {visibleItems.map((item) => (
             <li
               key={item.id}
-              className="flex items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm"
+              className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm"
             >
-              <span className="text-xl font-medium">{item.name}</span>
+              <div>
+                <p className="text-xs font-semibold text-red-600">{activeCategory?.name}</p>
+                <h3 className="mt-1 text-lg font-semibold leading-snug text-stone-900">
+                  {item.name}
+                </h3>
+              </div>
+              <span className="w-fit rounded-full bg-[#f8f5f0] px-2.5 py-1 text-xs font-medium text-stone-600">
+                รวมในบุฟเฟต์
+              </span>
               <QtyStepper
+                className="mt-auto w-full"
                 qty={cart[item.id] ?? 0}
                 onMinus={() => changeQty(item, -1)}
                 onPlus={() => changeQty(item, 1)}
@@ -351,53 +404,61 @@ export default function OrderPage({ params }) {
       </main>
 
       {/* Floating cart bar */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-white p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
-        {cartEntries.length === 0 ? (
-          <p className="py-3 text-center text-lg text-gray-500">แตะ + เพื่อเลือกเมนู</p>
-        ) : (
-          <div className="mx-auto flex max-w-xl items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className="flex-1 rounded-xl bg-gray-100 px-4 py-3 text-left text-lg font-semibold"
-            >
-              🛒 {cartEntries.length} รายการ ({totalQty} ชิ้น)
-            </button>
-            <button
-              type="button"
-              onClick={submitOrder}
-              disabled={submitting}
-              className="rounded-xl bg-green-600 px-6 py-3 text-xl font-bold text-white disabled:opacity-60"
-            >
-              {submitting ? 'กำลังส่ง...' : 'ส่งออเดอร์'}
-            </button>
-          </div>
-        )}
+      <div className="fixed inset-x-0 bottom-0 z-30 px-3 pb-3">
+        <div className="mx-auto max-w-3xl rounded-3xl bg-white p-3 shadow-lg ring-1 ring-stone-200">
+          {cartEntries.length === 0 ? (
+            <p className="py-2 text-center text-base text-stone-500">
+              แตะ “เพิ่ม” เพื่อเลือกเมนู
+            </p>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCartOpen(true)}
+                className="flex-1 rounded-2xl bg-[#f8f5f0] px-4 py-3 text-left text-base font-semibold text-stone-800"
+              >
+                🛒 {cartEntries.length} รายการ · {totalQty} ชิ้น
+              </button>
+              <button
+                type="button"
+                onClick={submitOrder}
+                disabled={submitting}
+                className="rounded-2xl bg-red-600 px-8 py-4 text-xl font-bold text-white shadow-md active:scale-95 disabled:opacity-60"
+              >
+                {submitting ? 'กำลังส่ง...' : 'สั่งอาหาร'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Cart sheet */}
+      {/* Cart popup */}
       {cartOpen && (
-        <div className="fixed inset-0 z-40 flex items-end bg-black/50" onClick={() => setCartOpen(false)}>
+        <div
+          className="fixed inset-0 z-40 flex items-end bg-black/40 p-3 sm:items-center sm:justify-center"
+          onClick={() => setCartOpen(false)}
+        >
           <div
-            className="max-h-[80vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5"
+            className="mx-auto max-h-[85vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-2xl font-bold">ตะกร้าของคุณ</h2>
+              <h2 className="font-display text-2xl text-stone-900">ตะกร้าของคุณ</h2>
               <button
                 type="button"
                 onClick={() => setCartOpen(false)}
-                className="text-lg font-semibold text-gray-500"
+                className="rounded-full bg-stone-100 px-4 py-1.5 text-base font-semibold text-stone-600"
               >
                 ปิด
               </button>
             </div>
 
-            <ul className="space-y-3">
+            <ul className="divide-y divide-stone-100">
               {cartEntries.map((entry) => (
-                <li key={entry.id} className="flex items-center justify-between gap-3">
-                  <span className="text-xl">{entry.name}</span>
+                <li key={entry.id} className="flex items-center justify-between gap-3 py-3">
+                  <span className="text-lg font-medium text-stone-900">{entry.name}</span>
                   <QtyStepper
+                    className="w-32 shrink-0"
                     qty={entry.quantity}
                     onMinus={() => changeQty(itemsById[entry.id], -1)}
                     onPlus={() => changeQty(itemsById[entry.id], 1)}
@@ -410,60 +471,62 @@ export default function OrderPage({ params }) {
               type="button"
               onClick={submitOrder}
               disabled={submitting || cartEntries.length === 0}
-              className="mt-6 w-full rounded-xl bg-green-600 py-4 text-2xl font-bold text-white disabled:opacity-60"
+              className="mt-6 w-full rounded-2xl bg-red-600 py-4 text-2xl font-bold text-white shadow-md active:scale-95 disabled:opacity-60"
             >
-              {submitting ? 'กำลังส่ง...' : 'ส่งออเดอร์'}
+              {submitting ? 'กำลังส่ง...' : 'สั่งอาหาร'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Bill confirm dialog */}
+      {/* Bill popup */}
       {showBill && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-2xl font-bold">ยืนยันเรียกเก็บเงิน?</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+            <h2 className="font-display text-2xl text-stone-900">เรียกเก็บเงิน</h2>
 
-            <ul className="mb-4 space-y-2 text-xl">
+            <ul className="mt-4 space-y-2 text-lg text-stone-700">
               <li className="flex justify-between">
-                <span>ผู้ใหญ่ {adultCount} × {ADULT_PRICE}</span>
-                <span>{formatBaht(adultTotal)}</span>
+                <span>
+                  ผู้ใหญ่ {adultCount} × {ADULT_PRICE}
+                </span>
+                <span className="font-semibold">฿{formatBaht(adultTotal)}</span>
               </li>
               <li className="flex justify-between">
-                <span>เด็ก {childCount} × {CHILD_PRICE}</span>
-                <span>{formatBaht(childTotal)}</span>
+                <span>
+                  เด็ก {childCount} × {CHILD_PRICE}
+                </span>
+                <span className="font-semibold">฿{formatBaht(childTotal)}</span>
               </li>
             </ul>
 
-            <p className="mb-4 flex justify-between border-t pt-3 text-3xl font-bold text-red-700">
-              <span>ยอดรวม</span>
-              <span>{formatBaht(grandTotal)} บาท</span>
-            </p>
+            <div className="my-4 flex items-end justify-between border-t border-stone-200 pt-4">
+              <span className="text-lg font-semibold text-stone-700">ยอดรวม</span>
+              <span className="font-display text-4xl text-red-600">฿{formatBaht(grandTotal)}</span>
+            </div>
 
             {cartEntries.length > 0 && (
-              <p className="mb-4 rounded-lg bg-orange-100 p-3 text-base text-orange-800">
+              <p className="mb-4 rounded-2xl bg-orange-50 p-3 text-base text-orange-800">
                 ⚠️ มีรายการในตะกร้าที่ยังไม่ได้ส่ง หากเรียกเก็บเงินจะไม่สามารถสั่งต่อได้
               </p>
             )}
 
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowBill(false)}
-                disabled={billing}
-                className="flex-1 rounded-xl bg-gray-200 py-3 text-xl font-semibold disabled:opacity-60"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={confirmBill}
-                disabled={billing}
-                className="flex-1 rounded-xl bg-red-600 py-3 text-xl font-semibold text-white disabled:opacity-60"
-              >
-                {billing ? 'กำลังดำเนินการ...' : 'ยืนยัน'}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={confirmBill}
+              disabled={billing}
+              className="w-full rounded-2xl bg-red-600 py-4 text-2xl font-bold text-white shadow-md active:scale-95 disabled:opacity-60"
+            >
+              {billing ? 'กำลังดำเนินการ...' : 'ยืนยันชำระเงิน'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBill(false)}
+              disabled={billing}
+              className="mt-3 w-full rounded-2xl bg-stone-100 py-3 text-lg font-semibold text-stone-700 disabled:opacity-60"
+            >
+              ยกเลิก
+            </button>
           </div>
         </div>
       )}
