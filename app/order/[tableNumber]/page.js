@@ -94,7 +94,7 @@ export default function OrderPage({ params }) {
   const { tableNumber: rawTableNumber } = use(params);
   const tableNumber = safeDecode(rawTableNumber);
 
-  // phase: loading | not_open | error | ready | finished
+  // phase: loading | not_open | error | ready | waiting (รอแอดมินอนุมัติ) | finished
   const [phase, setPhase] = useState('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -110,8 +110,9 @@ export default function OrderPage({ params }) {
 
   const [showBill, setShowBill] = useState(false);
   const [billing, setBilling] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
-  // ---------- Fetch: session (open) + หมวดหมู่ + เมนู ----------
+  // ---------- Fetch: session (open / billing) + หมวดหมู่ + เมนู ----------
   useEffect(() => {
     let cancelled = false;
 
@@ -121,7 +122,7 @@ export default function OrderPage({ params }) {
           .from('sessions')
           .select('id, table_number, adult_count, child_count, status, created_at')
           .eq('table_number', tableNumber)
-          .eq('status', 'open')
+          .in('status', ['open', 'billing'])
           .order('created_at', { ascending: false })
           .limit(1);
 
@@ -148,11 +149,13 @@ export default function OrderPage({ params }) {
         if (itemRes.error) throw itemRes.error;
         if (cancelled) return;
 
-        setSession(sessions[0]);
+        const found = sessions[0];
+        setSession(found);
         setCategories(catRes.data ?? []);
         setItems(itemRes.data ?? []);
         setActiveCategoryId(catRes.data?.[0]?.id ?? null);
-        setPhase('ready');
+        // ถ้ารีเฟรชหน้าตอนรอแอดมินอนุมัติ ให้กลับไปหน้ารอ
+        setPhase(found.status === 'billing' ? 'waiting' : 'ready');
       } catch (err) {
         console.error(err);
         if (!cancelled) {
@@ -167,6 +170,39 @@ export default function OrderPage({ params }) {
       cancelled = true;
     };
   }, [tableNumber]);
+
+  // ---------- ระหว่างรอแอดมินอนุมัติ: เช็กสถานะโต๊ะทุก 3 วินาที ----------
+  const sessionId = session?.id;
+  useEffect(() => {
+    if (phase !== 'waiting' || !sessionId) return;
+    let cancelled = false;
+
+    async function check() {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select('status')
+        .eq('id', sessionId)
+        .limit(1);
+
+      if (cancelled || error || !data || data.length === 0) return;
+      const current = data[0].status;
+
+      if (current === 'closed') {
+        setPhase('finished'); // แอดมินอนุมัติแล้ว
+      } else if (current === 'open') {
+        // แอดมินปฏิเสธ -> กลับไปสั่งอาหารต่อได้
+        setSession((prev) => (prev ? { ...prev, status: 'open' } : prev));
+        setPhase('ready');
+        flash('error', 'ยังไม่สามารถเรียกเก็บเงินได้ กรุณาติดต่อพนักงาน');
+      }
+    }
+
+    const timer = setInterval(check, 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [phase, sessionId]);
 
   // ---------- Derived data ----------
   const itemsById = useMemo(() => {
@@ -253,6 +289,7 @@ export default function OrderPage({ params }) {
   const childTotal = childCount * CHILD_PRICE;
   const grandTotal = adultTotal + childTotal;
 
+  // ลูกค้ากดยืนยัน -> ส่งคำขอ (status = 'billing') แล้วรอแอดมินอนุมัติ
   async function confirmBill() {
     if (!session || billing) return;
     setBilling(true);
@@ -260,20 +297,21 @@ export default function OrderPage({ params }) {
     try {
       const { data, error } = await supabase
         .from('sessions')
-        .update({ status: 'closed' })
+        .update({ status: 'billing' })
         .eq('id', session.id)
         .eq('status', 'open')
         .select('id');
 
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error('ปิดโต๊ะไม่สำเร็จ (โต๊ะอาจถูกปิดไปแล้ว) กรุณาแจ้งพนักงาน');
+        throw new Error('ส่งคำขอเรียกเก็บเงินไม่สำเร็จ (สถานะโต๊ะเปลี่ยนไปแล้ว) กรุณาแจ้งพนักงาน');
       }
 
       setShowBill(false);
       setCartOpen(false);
       setCart({});
-      setPhase('finished');
+      setSession((prev) => (prev ? { ...prev, status: 'billing' } : prev));
+      setPhase('waiting');
     } catch (err) {
       console.error(err);
       setShowBill(false);
@@ -282,6 +320,47 @@ export default function OrderPage({ params }) {
       setBilling(false);
     }
   }
+
+  // ลูกค้ายกเลิกคำขอระหว่างรอ -> กลับไปสั่งอาหารต่อ
+  async function cancelBillRequest() {
+    if (!session || cancelling) return;
+    setCancelling(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .update({ status: 'open' })
+        .eq('id', session.id)
+        .eq('status', 'billing')
+        .select('id');
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        // แอดมินอาจอนุมัติไปแล้วในจังหวะเดียวกัน — ให้ระบบเช็กสถานะจริงรอบถัดไป
+        flash('error', 'สถานะเปลี่ยนไปแล้ว กรุณารอสักครู่');
+        return;
+      }
+
+      setSession((prev) => (prev ? { ...prev, status: 'open' } : prev));
+      setPhase('ready');
+    } catch (err) {
+      console.error(err);
+      flash('error', err?.message ?? 'ยกเลิกไม่สำเร็จ');
+    } finally {
+      setCancelling(false);
+    }
+  }
+
+  // ---------- Toast (ใช้ร่วมกันทุกหน้าจอ) ----------
+  const toast = notice ? (
+    <div
+      className={`fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl px-4 py-3 text-center text-lg font-semibold text-white shadow-lg ${
+        notice.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+      }`}
+    >
+      {notice.text}
+    </div>
+  ) : null;
 
   // ---------- Full-screen states ----------
   if (phase === 'loading') {
@@ -301,6 +380,42 @@ export default function OrderPage({ params }) {
   }
   if (phase === 'finished') {
     return <ThankYou />;
+  }
+  if (phase === 'waiting') {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-6 px-6 text-center">
+        {toast}
+        <span className="rounded-full border border-red-300 bg-white px-4 py-1 text-sm font-medium text-red-600">
+          โต๊ะ {session.table_number} · SushiHana
+        </span>
+        <h1 className="font-display text-4xl leading-tight text-stone-900">
+          รอพนักงาน
+          <br />
+          <span className="text-red-600">อนุมัติการชำระเงิน</span>
+        </h1>
+
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-md">
+          <p className="text-lg text-stone-600">ยอดรวม</p>
+          <p className="font-display text-5xl text-red-600">฿{formatBaht(grandTotal)}</p>
+          <p className="mt-2 text-base text-stone-500">
+            ผู้ใหญ่ {adultCount} × {ADULT_PRICE} · เด็ก {childCount} × {CHILD_PRICE}
+          </p>
+        </div>
+
+        <p className="max-w-xs text-lg leading-relaxed text-stone-600">
+          กรุณารอสักครู่ พนักงานกำลังมาตรวจสอบและรับชำระเงินที่โต๊ะ
+        </p>
+
+        <button
+          type="button"
+          onClick={cancelBillRequest}
+          disabled={cancelling}
+          className="rounded-2xl bg-stone-100 px-8 py-3 text-lg font-semibold text-stone-700 disabled:opacity-60"
+        >
+          {cancelling ? 'กำลังยกเลิก...' : 'ยกเลิกการเรียกเก็บเงิน'}
+        </button>
+      </main>
+    );
   }
 
   const activeCategory = categories.find((c) => c.id === activeCategoryId);
@@ -362,15 +477,7 @@ export default function OrderPage({ params }) {
       </div>
 
       {/* Toast */}
-      {notice && (
-        <div
-          className={`fixed left-1/2 top-4 z-50 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl px-4 py-3 text-center text-lg font-semibold text-white shadow-lg ${
-            notice.type === 'success' ? 'bg-green-600' : 'bg-red-600'
-          }`}
-        >
-          {notice.text}
-        </div>
-      )}
+      {toast}
 
       {/* Menu grid */}
       <main className="mx-auto max-w-3xl px-4 pt-1">
@@ -504,6 +611,10 @@ export default function OrderPage({ params }) {
               <span className="text-lg font-semibold text-stone-700">ยอดรวม</span>
               <span className="font-display text-4xl text-red-600">฿{formatBaht(grandTotal)}</span>
             </div>
+
+            <p className="mb-4 text-base text-stone-500">
+              พนักงานจะมาตรวจสอบและรับชำระเงินที่โต๊ะ
+            </p>
 
             {cartEntries.length > 0 && (
               <p className="mb-4 rounded-2xl bg-orange-50 p-3 text-base text-orange-800">
