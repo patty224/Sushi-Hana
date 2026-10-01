@@ -37,20 +37,28 @@ Supabase client อยู่ที่ `lib/supabaseClient.js` (ใช้ path �
 | `menu_categories` | `id`, `name`, `sort_order` |
 | `menu_items` | `id`, `category_id` (FK → menu_categories.id), `name` |
 | `orders` | `id`, `session_id` (FK → sessions.id), `table_number`, `items` (jsonb), `status`, `created_at` |
+| `payment_logs` | `id`, `session_id` (text), `table_number`, `adult_count`, `child_count`, `adult_price`, `child_price`, `total_amount`, `opened_at`, `paid_at` — เขียนโดย trigger อัตโนมัติเมื่อ `sessions.status` เปลี่ยน `billing` → `closed` (SQL อยู่ที่ `supabase/payment_logs.sql`) ห้ามเขียน/อ่านจากโค้ดเว็บ |
 
 อ้างอิงชื่อตารางและคอลัมน์ตามนี้เท่านั้น ห้ามเดาคอลัมน์เพิ่มเอง
 
 ## หน้าที่วางแผนไว้
 
 - `/` — หน้าแรก (ทดสอบ deploy)
-- `/generate-qr` — สร้าง QR Code ประจำโต๊ะ
+- `/generate-qr` — หน้าพนักงาน: เปิดโต๊ะ/สร้าง QR Code + อนุมัติ/ปฏิเสธคำขอเรียกเก็บเงิน (ล็อกด้วย `NEXT_PUBLIC_STAFF_PIN` ถ้าตั้งไว้)
 - `/kitchen` — หน้าจอครัว
+- `/admin` — แอดมิน: เพิ่ม/ลบเมนูอาหาร (ล็อกด้วย PIN จาก `NEXT_PUBLIC_ADMIN_PIN`)
 - `/order/[tableNumber]` — หน้าสั่งอาหารของลูกค้า (Dynamic Route — ดูกฎ `params` ด้านบน)
 
 ## ค่า status ที่ใช้ในโปรเจกต์
 
-- `sessions.status`: `open` (เปิดโต๊ะอยู่) → `closed` (เรียกเก็บเงินแล้ว)
+- `sessions.status`: `open` (เปิดโต๊ะอยู่) → `billing` (ลูกค้ากดเรียกเก็บเงิน รอพนักงานอนุมัติ) → `closed` (พนักงานอนุมัติแล้ว) ; พนักงานปฏิเสธ/ลูกค้ายกเลิก = กลับเป็น `open`
 - `orders.status`: `received` (รอทำ) → `cooking` (กำลังทำ) → `served` (เสิร์ฟแล้ว)
 - ราคาบุฟเฟต์: ผู้ใหญ่ 289 บาท / เด็ก 145 บาท (คำนวณจาก `adult_count`, `child_count` ใน session)
 - `orders.items` (jsonb) เป็น array ของ `{ id, name, quantity }`
-- UI ใช้ Tailwind CSS
+
+## Design System (ธีมร้านอาหารญี่ปุ่นพรีเมียม)
+
+- Tailwind CSS v4 (`app/globals.css`, `postcss.config.mjs`) — ยกเว้น `app/page.js` ที่ต้องใช้ Inline Style เท่านั้น ห้ามใช้ Tailwind class
+- พื้นหลังหลัก `bg-[#f8f5f0]` (ครีม), สีเน้น `red-600` / `#e32929`
+- การ์ด `rounded-2xl`/`rounded-3xl` พื้นขาว + `shadow-sm`; ปุ่มหลักสีแดง; แท็บ/ปุ่มรองทรงแคปซูล `rounded-full`
+- ฟอนต์: เนื้อหา Prompt (`font-sans`), หัวข้อ Dela Gothic One + Kanit สำรองภาษาไทย (`font-display`) โหลดผ่าน `next/font/google` ใน `app/layout.js`
