@@ -177,6 +177,12 @@ export default function HomePage() {
             <p style={styles.cardText}>อนุมัติการเรียกเก็บเงิน และเพิ่ม/ลบเมนูอาหาร</p>
             <span style={styles.buttonOutline}>ไปที่หน้าแอดมิน</span>
           </Link>
+          <Link href="/history" style={styles.card}>
+            <p style={styles.cardLabel}>ประวัติและรายได้</p>
+            <h2 style={styles.cardTitle}>ประวัติการชำระเงิน</h2>
+            <p style={styles.cardText}>ดูรายการชำระเงินและสรุปรายได้ตามช่วงเวลา</p>
+            <span style={styles.buttonOutline}>ไปที่ประวัติชำระเงิน</span>
+          </Link>
         </section>
       </div>
     </main>
