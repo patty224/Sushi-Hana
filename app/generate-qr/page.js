@@ -212,26 +212,30 @@ function StaffPanel({ onLock }) {
   }, [loadBilling]);
 
   // ---------- Billing handlers ----------
-  async function approveBill(session) {
+    async function approveBill(session) {
     setBusySessionId(session.id);
     try {
-      const { data, error: updateError } = await supabase
-        .from('sessions')
-        .update({ status: 'closed' })
-        .eq('id', session.id)
-        .eq('status', 'billing') // กันกดซ้ำ/สถานะเปลี่ยนไปแล้ว
-        .select('id');
+      // เรียกฟังก์ชันใน Supabase: ปิดโต๊ะ + บันทึกประวัติชำระเงิน ในขั้นตอนเดียว
+      // ถ้าขั้นใดพลาด ฐานข้อมูลจะย้อนกลับทั้งหมด (ไม่มีกรณีปิดโต๊ะแล้วไม่มีประวัติ)
+      const { data, error: rpcError } = await supabase.rpc('approve_payment', {
+        p_session_id: String(session.id),
+      });
 
-      if (updateError) throw updateError;
-      if (!data || data.length === 0) {
-        throw new Error('รายการนี้ถูกเปลี่ยนสถานะไปแล้ว');
-      }
+      if (rpcError) throw rpcError;
+
+      const log = Array.isArray(data) ? data[0] : data;
+      const total = log?.total_amount;
 
       setBilling((prev) => prev.filter((s) => s.id !== session.id));
-      flashBilling('success', `อนุมัติโต๊ะ ${session.table_number} แล้ว — ปิดโต๊ะเรียบร้อย`);
+      flashBilling(
+        'success',
+        total != null
+          ? `บันทึกชำระเงินโต๊ะ ${session.table_number} แล้ว ฿${formatBaht(total)}`
+          : `บันทึกชำระเงินโต๊ะ ${session.table_number} แล้ว`
+      );
     } catch (err) {
       console.error(err);
-      flashBilling('error', err?.message ?? 'อนุมัติไม่สำเร็จ');
+      flashBilling('error', err?.message ?? 'บันทึกชำระเงินไม่สำเร็จ');
       loadBilling();
     } finally {
       setBusySessionId(null);
@@ -456,7 +460,7 @@ function StaffPanel({ onLock }) {
                     disabled={busy}
                     className="flex-[2] rounded-2xl bg-red-600 py-3 text-xl font-bold text-white shadow-md active:scale-95 disabled:opacity-60"
                   >
-                    {busy ? 'กำลังดำเนินการ...' : 'อนุมัติ (ปิดโต๊ะ)'}
+                    {busy ? 'กำลังดำเนินการ...' : 'บันทึกชำระเงิน'}
                   </button>
                 </div>
               </li>
